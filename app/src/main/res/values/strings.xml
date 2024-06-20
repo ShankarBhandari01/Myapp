@@ -1,7 +1,7 @@
 <resources>
-    <string name="app_name">ComposeLogin</string>
+    <string name="app_name">Myapp</string>
 
-    <string name="jetpack_compose">Jetpack Compose</string>
+    <string name="Welcome">Welcome</string>
 
     <string name="empty_string" />
 

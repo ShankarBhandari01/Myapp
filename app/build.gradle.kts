@@ -124,6 +124,7 @@ dependencies {
     implementation(libs.room)
     implementation(libs.room.runtime)
     ksp(libs.room.compiler)
+    implementation(kotlin("reflect"))
 
 
 }
