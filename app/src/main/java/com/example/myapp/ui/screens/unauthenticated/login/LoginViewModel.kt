@@ -1,24 +1,39 @@
 package com.example.myapp.ui.screens.unauthenticated.login
 
+import android.app.Application
 import androidx.compose.runtime.mutableStateOf
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
+import com.example.myapp.base.BaseViewModel
+import com.example.myapp.data.model.LoginRequest
+import com.example.myapp.data.model.LoginResponse
+import com.example.myapp.data.repository.LoginRepository
 import com.example.myapp.ui.common.state.ErrorState
 import com.example.myapp.ui.screens.unauthenticated.login.state.LoginErrorState
 import com.example.myapp.ui.screens.unauthenticated.login.state.LoginState
 import com.example.myapp.ui.screens.unauthenticated.login.state.LoginUiEvent
 import com.example.myapp.ui.screens.unauthenticated.login.state.emailOrMobileEmptyErrorState
 import com.example.myapp.ui.screens.unauthenticated.login.state.passwordEmptyErrorState
+import com.example.myapp.util.NetWorkResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
  * ViewModel for Login Screen
  */
 @HiltViewModel
-class LoginViewModel @Inject constructor() : ViewModel() {
+class LoginViewModel @Inject constructor(
+    private val loginRepository: LoginRepository,
+    application: Application
+) :
+    BaseViewModel(application) {
 
     var loginState = mutableStateOf(LoginState())
         private set
+    private val _responseLogin: MutableLiveData<NetWorkResult<LoginResponse>> = MutableLiveData()
+    val responseLogin: LiveData<NetWorkResult<LoginResponse>> = _responseLogin
 
     /**
      * Function called on any login event [LoginUiEvent]
@@ -31,9 +46,10 @@ class LoginViewModel @Inject constructor() : ViewModel() {
                 loginState.value = loginState.value.copy(
                     emailOrMobile = loginUiEvent.inputValue,
                     errorState = loginState.value.errorState.copy(
-                        emailOrMobileErrorState = if (loginUiEvent.inputValue.trim().isNotEmpty())
+                        emailOrMobileErrorState = if (loginUiEvent.inputValue.trim().isNotEmpty()) {
+                            loginState.value = loginState.value.copy(isLoginLoading = false)
                             ErrorState()
-                        else
+                        } else
                             emailOrMobileEmptyErrorState
                     )
                 )
@@ -44,9 +60,10 @@ class LoginViewModel @Inject constructor() : ViewModel() {
                 loginState.value = loginState.value.copy(
                     password = loginUiEvent.inputValue,
                     errorState = loginState.value.errorState.copy(
-                        passwordErrorState = if (loginUiEvent.inputValue.trim().isNotEmpty())
+                        passwordErrorState = if (loginUiEvent.inputValue.trim().isNotEmpty()) {
+                            loginState.value = loginState.value.copy(isLoginLoading = false)
                             ErrorState()
-                        else
+                        } else
                             passwordEmptyErrorState
                     )
                 )
@@ -56,12 +73,29 @@ class LoginViewModel @Inject constructor() : ViewModel() {
             is LoginUiEvent.Submit -> {
                 val inputsValidated = validateInputs()
                 if (inputsValidated) {
-                    // TODO Trigger login in authentication flow
-                    loginState.value = loginState.value.copy(isLoginSuccessful = true)
+                    loginState.value = loginState.value.copy(isLoginLoading = true)
+                    submitLogin()
                 }
             }
         }
     }
+
+    private fun submitLogin() {
+        viewModelScope.launch {
+            val loginRequest = LoginRequest(
+                email = loginState.value.emailOrMobile,
+                password = loginState.value.password
+            )
+            loginRepository.login(context, loginRequest = loginRequest).collect {
+                _responseLogin.value = it
+            }
+            loginState.value =
+                loginState.value.copy(isLoginSuccessful = false) // change this status after api call
+        }
+
+
+    }
+
 
     /**
      * Function to validate inputs
